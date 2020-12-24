@@ -69,14 +69,20 @@ def frame_capture(file, save_path, count, pointer):
             counter_numero_frames_presi = 0
             continue
 
-        if pointer[0] <= numero_frames <= pointer[1] and numero_frames % primo_stride == 0 and counter_numero_frames_presi < max_numero_frames:
+        if pointer[0] <= numero_frames < pointer[1] and numero_frames % primo_stride == 0 and counter_numero_frames_presi < max_numero_frames:
             counter_numero_frames_presi += 1
             success, image = vidcap.read()
-            cv2.imwrite(save_path % count, image)  # save frame as JPEG file
+            if success:
+                cv2.imwrite(save_path % count, image)  # save frame as JPEG file
+            else:
+                continue
         elif pointer[2] <= numero_frames <= pointer[3] and numero_frames % secondo_stride == 0 and counter_numero_frames_presi < max_numero_frames:
             counter_numero_frames_presi += 1
             success, image = vidcap.read()
-            cv2.imwrite(save_path % count, image)  # save frame as JPEG file
+            if success:
+                cv2.imwrite(save_path % count, image)  # save frame as JPEG file
+            else:
+                continue
         # success, image = vidcap.read()
         # print('Read a new frame: ', success)
         count += 1
@@ -288,25 +294,41 @@ def ucfcrime():
                 secondo_f_frames = 0
                 terzo_i_frames = -1
                 quarto_f_frames = -1
+                path_file = os.path.join(path_video, file)
                 # open the file using open() function
-                with open("UCF_Crimes_temporal_annotation.txt", "r") as annotation:
-                    # Reading from file
-                    trovato = False
-                    while not trovato:
-                        row = annotation.readline()
-                        words = row.split(" ")
-                        if words[0] == file:
-                            trovato = True
-                            primo_i_frames = int(words[2])
-                            secondo_f_frames = int(words[3])
-                            terzo_i_frames = int(words[4])
-                            quarto_f_frames = int(words[5])
-                        elif  words[0] == 'Fine':
-                            trovato = True
-                            primo_i_frames = -1
+                if class_folder == "NoViolence":
+                    clip = VideoFileClip(path_file)
+                    fps = int(clip.fps)
+                    durata = int(clip.duration)
+                    if fps * durata < 400:
+                        secondo_f_frames = (fps * durata) - 1
+                    else:
+                        primo_i_frames = fps * 2
+                        secondo_f_frames = fps * (durata - 2)
+                    clip.close()
+                else:
+                    with open("UCF_Crimes_temporal_annotation.txt", "r") as annotation:
+                        # Reading from file
+                        trovato = False
+                        while not trovato:
+                            row = annotation.readline()
+                            words = row.split(" ")
+                            if words[0] == file:
+                                trovato = True
+                                primo_i_frames = int(words[2])
+                                secondo_f_frames = int(words[3])
+                                terzo_i_frames = int(words[4])
+                                quarto_f_frames = int(words[5])
+                            elif  words[0] == 'Fine':
+                                trovato = True
+                                primo_i_frames = -1
 
                 pointer = (primo_i_frames, secondo_f_frames, terzo_i_frames, quarto_f_frames)
-                nome_clip = file.split("_")[0]
+                if class_folder == "NoViolence":
+                    nome_clip = "_".join(file.split("_")[x] for x in [0,2])
+                else:
+                    nome_clip = file.split("_")[0]
+
                 count = 0
                 # creo la cartella
                 # os.makedirs(os.path.join(path_video, folder_name), exist_ok=True)
@@ -319,19 +341,17 @@ def ucfcrime():
                 # i diversi frame di ogni video saranno distinguibili
                 path_to_save = os.path.join(DataExtract_UFCRIME, class_folder, nome_clip + "_frame%d.jpg")
                 # questo è il path del file video
-                path_file = os.path.join(path_video, file)
-
                 _ = frame_capture(path_file, path_to_save, count, pointer)
 
 
 if __name__ == "__main__":
     print("Iniziamo")
     print("UT-Interaction")
-    utinteraction()
+    # utinteraction()
     print("UCF101")
-    ucf101()
+    # ucf101()
     print("HMDB51")
-    hmdb51()
+    # hmdb51()
     print("UCFCRIME")
     ucfcrime()
     print("Fine")
