@@ -73,7 +73,7 @@ def frame_capture(file, save_path, count, pointer):
             counter_numero_frames_presi += 1
             success, image = vidcap.read()
             cv2.imwrite(save_path % count, image)  # save frame as JPEG file
-        elif  pointer[2] <= numero_frames <= pointer[3] and numero_frames % secondo_stride == 0 and counter_numero_frames_presi < max_numero_frames:
+        elif pointer[2] <= numero_frames <= pointer[3] and numero_frames % secondo_stride == 0 and counter_numero_frames_presi < max_numero_frames:
             counter_numero_frames_presi += 1
             success, image = vidcap.read()
             cv2.imwrite(save_path % count, image)  # save frame as JPEG file
@@ -131,6 +131,8 @@ def ucf101():
                 else:
                     primo_i_frames = fps * 2
                     secondo_f_frames = fps * (durata - 2)
+
+                clip.close()
 
                 pointer = (primo_i_frames, secondo_f_frames, terzo_i_frames, quarto_f_frames)
                 folder_name = file[0:len(file) - len(video_format + "_c00")]
@@ -195,10 +197,12 @@ def utinteraction():
                 quarto_f_frames = -1
 
                 if fps * durata < 300 :
-                    secondo_f_frames = fps * durata
+                    secondo_f_frames = (fps * durata) - 1
                 else:
                     primo_i_frames = fps * 2
                     secondo_f_frames = fps * (durata - 2)
+
+                clip.close()
 
                 pointer = (primo_i_frames, secondo_f_frames, terzo_i_frames, quarto_f_frames)
 
@@ -300,6 +304,7 @@ def ucfcrime():
                         elif  words[0] == 'Fine':
                             trovato = True
                             primo_i_frames = -1
+
                 pointer = (primo_i_frames, secondo_f_frames, terzo_i_frames, quarto_f_frames)
                 nome_clip = file.split("_")[0]
                 count = 0
@@ -324,10 +329,10 @@ if __name__ == "__main__":
     print("UT-Interaction")
     utinteraction()
     print("UCF101")
-    # ucf101()
+    ucf101()
     print("HMDB51")
-    # hmdb51()
+    hmdb51()
     print("UCFCRIME")
-    # ucfcrime()
+    ucfcrime()
     print("Fine")
     print("-----------------")
