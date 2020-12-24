@@ -1,3 +1,5 @@
-print("Iper Test")
+from moviepy.editor import VideoFileClip
 
-print("Modifica Nuova")
+clip = VideoFileClip("DataSet/UCF-CRIME/Fighting/Fighting002_x264.mp4")
+print(int(clip.fps))
+print(int(clip.duration))
