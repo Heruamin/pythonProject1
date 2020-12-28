@@ -1,132 +1,67 @@
-from os.path import dirname, abspath
-from keras.applications.inception_v3 import InceptionV3, preprocess_input
-from keras.callbacks import CSVLogger
-from keras.callbacks import ModelCheckpoint, EarlyStopping
-from keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from keras.models import Model
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.preprocessing.image import ImageDataGenerator
 import time
-# from setup import CURRENT_DATASET
-# from setup import TRAIN_FOLDER
-# from setup import TEST_FOLDER
-# from setup import CHECKPOINT_FILE
-# from setup import BATCH_SIZE_
-# from setup import PATIENCE_
-# from setup import VAL_STEPS_
 
-SETUP_PATH = dirname(dirname(dirname(abspath(__file__)))) + '\\' + 'setup.txt'
+from tensorflow.keras.layers import Activation, Dense, LSTM, Attention, Flatten
+from tensorflow.keras.layers import Conv2D, Embedding, Input, Dropout, TimeDistributed
+from tensorflow.keras import activations
+from keras.applications.imagenet_utils import preprocess_input
 
+import matplotlib.pyplot as plt
 
-def get_conf(filename, conf):
-    with open(filename) as f:
-        for line in f:
-            raw = line
-            if raw.startswith(conf):
-                return raw.strip(conf).strip("\n").strip("'")
+import skimage
+import skimage.transform as skimage_t
 
+from glob import glob        # tool to match file patterns
+import numpy as np
 
-CURRENT_DATASET = str(get_conf(SETUP_PATH, "CURRENT_DATASET = "))
-# DATASET_PATH = dirname(dirname(dirname(abspath(__file__)))) + '\\' + 'Dataset\\' + str(CURRENT_DATASET) + '\\'
+# Caricamento dei dati, sto seguendo quello che ci ha mostrato vincenzo in :
+# - https://colab.research.google.com/drive/1d7rSfAKhDoYBqX_2Rzj9LuznYEM9kiET?usp=sharing#scrollTo=Itd-h9N_ndB-
 
-path = dirname(dirname(dirname(abspath(__file__)))) + '\\Dataset' + '\\' + CURRENT_DATASET + '\\'
-TRAINFOLDER = str(get_conf(SETUP_PATH, "TRAIN_FOLDER = "))
-TESTFOLDER = str(get_conf(SETUP_PATH, "TEST_FOLDER = "))
-CHECKPOINTFILE = str(get_conf(SETUP_PATH, "CHECKPOINT_FILE = "))
-""" Modificare BATCH_SIZE con il numero di frame presenti in ogni video di un dataset """
-BATCH_SIZE = int(get_conf(SETUP_PATH, "BATCH_SIZE_ = "))
-""" PATIENCE definisce il numero di epoch senza miglioramente dopo la quale la fase di training verrà stoppata """
-PATIENCE = int(get_conf(SETUP_PATH, "PATIENCE_ = "))
-""" Inserire il numero di video presenti nella cartella di test, sia Violence che NonViolence """
-VAL_STEPS = int(get_conf(SETUP_PATH, "VAL_STEPS_ = "))
+n_classes = 2
 
-# Helper: Save the min val_loss model in each epoch.
-checkpointer = ModelCheckpoint(
-    monitor='val_binary_accuracy',
-    filepath='./checkpoints/' + CHECKPOINTFILE + '.{epoch:03d}-{val_binary_accuracy:.3f}.h5',
-    verbose=1,
-    save_best_only=True,
-    save_weights_only=True
-)
+path_drive = '/content/drive/MyDrive/Colab Notebooks/ColabProgetto/Progetto/Split/HMDB51/train'
 
-# Helper: Stop when we stop learning.
-# patience: number of epochs with no improvement after which training will be stopped.
-early_stopper = EarlyStopping(patience=PATIENCE)
+NoViol_images = glob(path_drive + '/NoViolence/*.jpg')
+Viol_images = glob(path_drive + '/Violence/*.jpg')
 
-csv_logger = CSVLogger('training.log', separator=',', append=False)
+# build labels array, starting as a list
+# you could probably do this more efficiently with list comprehensions
+# but I find this more readable
+labels = []
 
+for i in NoViol_images:
+    labels.append(0)           # D=0 for NoViol, undefaced
 
-def get_generators():
-    train_datagen = ImageDataGenerator(preprocessing_function=preprocess_input,
-                                       rotation_range=20,
-                                       shear_range=0.2,
-                                       zoom_range=0.4,
-                                       horizontal_flip=True
-                                       )
-    test_datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
+for i in Viol_images:
+    labels.append(1)           # D=1 for Viol
 
-    train_generator = train_datagen.flow_from_directory(
-        path + '/' + TRAINFOLDER + '/',
-        target_size=(150, 150),
-        batch_size=8,
-        shuffle=True,
-        classes=['Violence', 'NonViolence'],
-        class_mode='binary')
+labels = np.uint8(labels)
+image_filenames = NoViol_images + Viol_images
 
-    validation_generator = test_datagen.flow_from_directory(
-        path + '/' + TESTFOLDER + '/',
-        target_size=(150, 150),
-        batch_size=BATCH_SIZE,
-        shuffle=False,
-        classes=['Violence', 'NonViolence'],
-        class_mode='binary')
-    label_map = (train_generator.class_indices)
-    print(label_map)
+n_images = len(labels)
+n_channels = 3               # colour channels
 
-    return train_generator, validation_generator
+print('Created list with labels. There are', n_images, 'of them.')
 
+image_data = np.zeros((n_images, 150, 150, n_channels), dtype=np.float32)
 
-def get_model(weights='imagenet'):
-    # create the base pre-trained model
-    base_model = InceptionV3(weights=weights, input_shape=(150, 150, 3), include_top=False)
+for i, img_filename in enumerate(image_filenames):
+    img = plt.imread(img_filename)
+    print(img.shape, end = ' - ')
+    img = skimage.img_as_float(img)
+    img = skimage_t.resize(img, output_shape = (150,150,3))
+    print(img.shape)
+    img = img / np.max(img)
 
-    # add a global spatial average pooling layer
-    x = Sequential()(base_model.output)
-    x = GlobalAveragePooling2D()(x)
+    image_data[i, :, :, :] = img
 
-    # let's add a fully-connected layer
-    x = Dense(512, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    x = Dense(256, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    x = Dense(100, activation='relu')(x)
-
-    # and a logistic layer -- let's say we have 2 classes
-    predictions = Dense(1, activation='sigmoid')(x)
-
-    model = Model(inputs=base_model.input, outputs=predictions)
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['binary_accuracy'])
-    return model
-
-
-def train_model(model, nb_epoch, val_steps, generators, callbacks=[]):
-    train_generator, validation_generator = generators
-    model.fit_generator(
-        train_generator,
-        validation_data=validation_generator,
-        validation_steps=val_steps,
-        epochs=nb_epoch,
-        callbacks=callbacks)
-    return model
-
-
-def main(weights_file):
-    generators = get_generators()
-    model = get_model()
-    print("Model loaded.")
-    start = time.perf_counter()
-    model = train_model(model, 1000, VAL_STEPS, generators, [checkpointer, early_stopper, csv_logger])
-    print('Training phase execution time > ', time.perf_counter() - start)
-
-weights_file = None
-main(weights_file)
+# print('First image (NoViolence):')
+# plt.imshow(image_data[0, :, :, :])
+# plt.axis('off')
+# plt.show()
+#
+# print('Last image (Violence):')
+# plt.imshow(image_data[-1, :, :, :])
+# plt.axis('off')
+# plt.show()
