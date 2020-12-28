@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import skimage
 import skimage.transform as skimage_t
+from skimage.color import rgb2gray
 
 from glob import glob        # tool to match file patterns
 import numpy as np
@@ -40,29 +41,35 @@ labels = np.uint8(labels)
 image_filenames = NoViol_images + Viol_images
 
 n_images = len(labels)
-n_channels = 3               # colour channels
+#n_channels = 3               # colour channels
 
 print('Created list with labels. There are', n_images, 'of them.')
 
-image_data = np.zeros((n_images, 150, 150, n_channels), dtype=np.float32)
+#image_data = np.zeros((n_images, 150, 150, n_channels), dtype=np.float32)
+image_data = np.zeros((n_images, 150, 150), dtype=np.float32)
 
 for i, img_filename in enumerate(image_filenames):
     img = plt.imread(img_filename)
-    print(img.shape, end = ' - ')
+    #print(img.shape, end = ' - ')
     img = skimage.img_as_float(img)
     img = skimage_t.resize(img, output_shape = (150,150,3))
-    print(img.shape)
+    # Le rendiamo in scala di grigi
+    img = rgb2gray(img)
+    #print(img.shape)
     img = img / np.max(img)
 
-    image_data[i, :, :, :] = img
+    #image_data[i, :, :, :] = img Perchè uso la scala di grigi
+    image_data[i, :, :] = img
 
 # print('First image (NoViolence):')
-# plt.imshow(image_data[0, :, :, :])
+# # plt.imshow(image_data[0, :, :, :])
+# plt.imshow(image_data[0, :, :])
 # plt.axis('off')
 # plt.show()
 #
 # print('Last image (Violence):')
-# plt.imshow(image_data[-1, :, :, :])
+# # plt.imshow(image_data[-1, :, :, :])
+# plt.imshow(image_data[-1, :, :])
 # plt.axis('off')
 # plt.show()
 
@@ -80,7 +87,7 @@ print('Test labels shape:', labels_test.shape)
 
 # Il modello è sempre nella precedente versione
 
-inp = Input((150,150, 3))
+inp = Input((150,150))
 # inp_2 = TimeDistributed(Flatten(input_shape = (150,150,1) ))(inp)
 
 lstm = LSTM(128, input_shape = (50, 150*150) , return_sequences=True)(inp)
