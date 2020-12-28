@@ -65,3 +65,40 @@ for i, img_filename in enumerate(image_filenames):
 # plt.imshow(image_data[-1, :, :, :])
 # plt.axis('off')
 # plt.show()
+
+from sklearn.model_selection import train_test_split
+
+image_data_train, image_data_test, labels_train, labels_test = train_test_split(image_data, labels, test_size=0.3, random_state=17)
+
+# when in doubt, print all the shapes
+# print all the shapes when not in doubt too
+print('Training images shape:', image_data_train.shape)
+print('Training labels shape:', labels_train.shape)
+
+print('Test images shape:', image_data_test.shape)
+print('Test labels shape:', labels_test.shape)
+
+# Il modello è sempre nella precedente versione
+
+inp = Input((150,150, 3))
+# inp_2 = TimeDistributed(Flatten(input_shape = (150,150,1) ))(inp)
+
+lstm = LSTM(128, input_shape = (50, 150*150) , return_sequences=True)(inp)
+
+#lstm = TimeDistributed(lstm)(inp)
+# drop = Dropout(0.2)(lstm)
+query = Dense(60)(lstm)
+values = Dense(60)(lstm)
+query = Embedding(input_dim = 60,output_dim=30)(query)
+values = Embedding(input_dim = 60,output_dim=30)(values)
+att = Attention()([query, values])
+
+dense = Dense(30, activation='sigmoid') (att)
+
+end = Dense(2, activation='softmax') (dense)
+
+model = Model(inputs=inp, outputs=end, name="Lstm_Attention")
+model.compile(optimizer='adam', loss="sparse_categorical_crossentropy", metrics=['accuracy'])
+print(model.summary())
+
+model.fit(image_data_train, labels_train, batch_size=64, epochs=10, validation_split=0.2, shuffle=True)
