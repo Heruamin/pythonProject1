@@ -20,7 +20,7 @@ import numpy as np
 
 n_classes = 2
 
-path_drive = '/content/drive/MyDrive/Colab Notebooks/ColabProgetto/Progetto/Split/HMDB51/train'
+path_drive = 'DataExtract/HMDB51'
 
 NoViol_images = glob(path_drive + '/NoViolence/*.jpg')
 Viol_images = glob(path_drive + '/Violence/*.jpg')
